@@ -20,7 +20,7 @@ Paste a process description. The tool returns a table:
 ## How it works
 
 1. A Gradio page takes the process text.
-2. The text goes to an OpenAI model ([model name]) together with my instructions: label definitions and explicit tool-selection rules written from my experience with banking process automation.
+2. The text goes to an OpenAI model together with my instructions: label definitions and explicit tool-selection rules written from my experience with banking process automation.
 3. The model returns JSON, which is shown as a table.
 4. Label and tool names are checked and normalised (for example, capitalisation of tool names).
 
