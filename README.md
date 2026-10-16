@@ -1,39 +1,44 @@
 # Process Automation Analyzer
 
-An LLM tool that breaks a business process into steps, labels each step **AUTOMATE / ASSIST / MANUAL**, and suggests which Microsoft tool to use, with a short build outline and risk note.
+An LLM tool that takes a business process described in plain words, splits it into steps, labels each step **AUTOMATE / ASSIST / MANUAL**, and suggests which Microsoft tool to use. I built it to learn how to test an AI tool properly, so the evaluation is the main part of this project.
+
+<img width="1487" height="345" alt="image" src="https://github.com/user-attachments/assets/367f4373-5fd9-45ec-8b07-51ecd90edde9" />
+<img width="1493" height="316" alt="image" src="https://github.com/user-attachments/assets/0a4fa47a-edb4-46da-88aa-e91e0a0015f9" />
+
 
 ## What it does
 
-Paste a process description in plain words. The tool returns a table with:
+Paste a process description. The tool returns a table:
 
 | Column | Meaning |
 |---|---|
-| step | one step of the process |
-| label | `AUTOMATE` (rule-based, no judgment), `ASSIST` (AI prepares, a human reviews), `MANUAL` (needs human judgment or accountability) |
-| tool | one of: Power Automate, Power Apps, Copilot, SharePoint, Outlook, Teams, Microsoft Forms, Power BI |
-| how / risk | a short build outline and the main risk |
+| Process | short title of the process |
+| Step | one step of the process |
+| Label | `AUTOMATE` (rule-based, no judgment), `ASSIST` (AI or software prepares, a human reviews), `MANUAL` (needs human judgment, negotiation or accountability) |
+| Tool | one of: Power Automate, Power Apps, Copilot, SharePoint, Outlook, Teams, Microsoft Forms, Power BI (`-` for MANUAL) |
 
 ## How it works
 
 1. A Gradio page takes the process text.
-2. The text and my instructions go to an OpenAI model ([model name]) through the API, requesting JSON output.
-3. The JSON is shown as a table.
-4. The instructions contain the label definitions and explicit tool-selection rules, written from my experience with banking process automation.
+2. The text goes to an OpenAI model ([model name]) together with my instructions: label definitions and explicit tool-selection rules written from my experience with banking process automation.
+3. The model returns JSON, which is shown as a table.
+4. Label and tool names are checked and normalised (for example, capitalisation of tool names).
 
 ## Evaluation
 
-The question was whether the tool's labels and tool choices match an expert's. A tool that sounds confident can still be wrong, so I measured it.
+**Question:** do the tool's labels and tool choices match an expert's?
 
 ### Method
 
-- I wrote **20 invented processes (104 steps)** with my own answer key: a label and a tool for each step. No employer data was used.
-- Processes were split into three sets:
+- I created **20 invented processes (104 steps)** with an answer key: a label and a tool for every step. No employer data was used.
+- The answer keys were drafted with AI assistance and then reviewed and adapted by me.
+- The processes were split into three sets:
   - **Tuning set:** 10 processes, 50 steps. Used to improve the instructions.
-  - **Held-out set:** 5 processes, 25 steps. Written before the instructions were tuned and not used during tuning.
-  - **Hard set:** 5 processes, 29 steps. Ambiguous steps, approvals, and informal, messy wording. Scored once, with no changes afterwards.
-- The model receives the steps already split, so answers can be compared row by row.
-- **Label accuracy:** the model's label matches my key.
-- **Tool accuracy:** the model's tool matches my key, counted only for steps the key marks AUTOMATE or ASSIST.
+  - **Held-out set:** 5 processes, 25 steps. Written before the tuning and not used while tuning.
+  - **Hard set:** 5 processes, 29 steps, with ambiguous steps, approvals and informal wording. Scored once, with no changes afterwards.
+- In the evaluation, the steps were already split, so the scores measure labelling and tool choice, not step splitting.
+- **Label accuracy:** the model's label equals my label.
+- **Tool accuracy:** the model's tool equals my tool, counted only for steps my key marks AUTOMATE or ASSIST.
 
 ### Results
 
@@ -73,48 +78,50 @@ Hard set:
 
 ### What changed between versions
 
-- **v1 (baseline):** label definitions and a free choice of Microsoft tools. The model rarely used ASSIST (3 of 11 correct) and often named tools in a different form than the key.
-- **v2:** added exact tool names, tool-selection rules, and a definition of ASSIST ("AI prepares, a human reviews"). Label accuracy 82%, tool accuracy 52%.
-- **v3:** [describe the further changes you made]. Label accuracy 84%, tool accuracy 60%.
+- **v1 (baseline):** label definitions, free choice of Microsoft tools. The model rarely used ASSIST (3 of 11 correct) and often named tools differently from my key.
+- **v2:** exact tool names, tool-selection rules, and a definition of ASSIST ("AI prepares, a human reviews"). Labels 82%, tools 52%.
+- **v3:** improved the instructions. Labels 84%, tools 60%.
 
 ### Findings
 
-- Label accuracy was about the same on the tuning set (84%) and the hard set (83%), so the tuning did not obviously overfit. The clean held-out set (100%) was easy.
-- **The model never labelled a human-judgment step (MANUAL) as automatable**, in any of the 104 steps.
-- The consistent weakness is the opposite direction: the model treats "a human is involved" as MANUAL. It confuses a human *reviewing* AI output (ASSIST) with a human *doing* the work. 9 of the 13 label errors in the tuned and hard sets are of this kind (ASSIST or AUTOMATE called MANUAL).
-- Tool accuracy plateaued at about 58% across all sets. Many steps have two defensible tools (for example, Outlook vs. Power Automate for sending an email), so a one-answer key understates real quality. [Optional: add a second figure counting my listed acceptable alternatives.]
+- Label accuracy was about the same on the tuning set (84%) and the hard set (83%), so the tuning does not obviously overfit. The clean held-out set (100%) was easy.
+- **The model never labelled a MANUAL step as automatable**, in any of the 104 steps.
+- The main weakness: **11 of the 13 label errors** in the tuned and hard sets are the model choosing MANUAL where I chose ASSIST or AUTOMATE. It tends to treat "a human is involved" as "a human must do this", and confuses a human *reviewing* AI output (ASSIST) with a human *doing* the work. ASSIST was the hardest label (7/11 on the tuning set, 2/6 on the hard set).
+- Tool accuracy stopped improving at about 58%. Many steps have two defensible tools (for example, Outlook or Power Automate for sending an email), so a one-answer key understates the tool's real usefulness. 
 
 ### Limitations
 
-- One author wrote the processes and the key, so the key reflects one person's judgment.
-- Small sample: 104 steps in total. A single step moves accuracy by 2 to 4 points on any one set, and the 100% result covers only 25 steps.
-- All processes are invented and written in a similar style, so real-world documents may be harder.
-- The tool list is restricted to eight Microsoft products, and the tool suggestions are a first draft, not a verified design.
-- The output is a plan, not a working flow. A person still has to build and test the automation.
-- The label tests how well the model reproduces my judgment, not whether the automation is a good idea.
+- One person's judgment defines the answer key, and the keys were drafted with AI assistance.
+- Small sample (104 steps in total). One step moves a set's accuracy by 2 to 4 points, and the 100% result covers only 25 steps.
+- All processes are invented and fairly short, so real documents may be harder.
+- In the interface, the model splits the process into steps itself. This was not evaluated, because the evaluation used pre-split steps. Different step boundaries could change the results.
+- The tool list is limited to eight Microsoft products. Tool suggestions are a first draft, not a verified design.
+- The output is a plan, not a working automation. A person still has to build and test it.
+- The labels test how well the model reproduces my judgment, not whether automating a step is a good idea.
 
 ## Run it yourself (Google Colab)
 
-1. Open the notebook in Google Colab: `[link]`
-2. Add your OpenAI API key under Secrets (key icon), named `API`, with notebook access on.
-3. Run the cells in order. The Gradio interface appears under the last cell.
+1. Open the notebook: `https://colab.research.google.com/drive/1u15198Nbh5zj5f27VOTAR3w_af8e6sVY?authuser=1#scrollTo=1v9fBBESnnK5`
+2. Add your OpenAI API key under Secrets (key icon), named `API`, with notebook access switched on.
+3. Run the cells in order. The interface appears under the last cell.
 
 ```
 pip install openai gradio
 ```
 
-The evaluation cells use the answer keys in the notebook. Expect a cost of a few francs for the full evaluation.
+The full evaluation costs a few francs of API usage.
 
 ## Repository contents
 
-- `[notebook name].ipynb`: the tool, the answer keys, and the evaluation
+- `Process_to_automations_ideas.ipynb`: the tool, the answer keys, the evaluation and the interface
 - `README.md`: this file
 
 ## Possible next steps
 
-- Count alternative acceptable tools as correct, defined in advance
+- Count a defined list of acceptable tools as correct
 - Add a rule or example for "human reviews AI output" to reduce the MANUAL bias
-- Read process documents (Word, PDF) instead of pasted text
+- Evaluate step splitting by comparing the model's steps with mine
+- Read Word or PDF process documents instead of pasted text
 - Compare models on cost vs. accuracy
 - Host the interface permanently, for example on Hugging Face Spaces
 
